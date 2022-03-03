@@ -1,0 +1,55 @@
+name: Test buildkit GitHub cache
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  github-cache:
+    name: "GitHub cache"
+    runs-on: ubuntu-20.04
+    timeout-minutes: 15
+    steps:
+      - name: "Check out"
+        uses: actions/checkout@v2
+
+      - name: "Set up Go"
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+
+      - name: "Expose GitHub Runtime"
+        uses: crazy-max/ghaction-github-runtime@v1
+
+      - name: Install the latest buildkit release
+        run: |
+          BUILDKIT_URL="$(curl -sL https://api.github.com/repos/moby/buildkit/releases \
+            | jq -r 'map(select(.name|startswith("v")))|sort_by(.name)[-1].assets[]|select(.name|endswith(".linux-amd64.tar.gz")).browser_download_url')"
+          curl -L "${BUILDKIT_URL}" | sudo tar -xz -C /usr/local
+
+      - name: Start buildkit daemon
+        run: |
+          docker run --net=host \
+            -d \
+            --restart always \
+            -v dagger-buildkitd:/var/lib/buildkit \
+            --name dagger-buildkitd \
+            --privileged \
+            moby/buildkit:master
+
+      - name: Run go program and build
+        env:
+          BUILDKIT_HOST: docker-container://dagger-buildkitd
+        run: |
+          env | grep ACTIONS
+          go run ./main.go | buildctl build \
+          --output type=local,dest=result \
+          --export-cache type=gha,mode=max \
+          --import-cache type=gha \
+          --progress plain
+
+      - name: Verify result
+        run: |
+          grep -q test result/test
