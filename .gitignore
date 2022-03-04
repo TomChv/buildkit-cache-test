@@ -17,3 +17,6 @@ result
 store
 .idea
 test-dagger
+
+.env
+vendor
