@@ -26,6 +26,9 @@ jobs:
             | jq -r 'map(select(.name|startswith("v")))|sort_by(.name)[-1].assets[]|select(.name|endswith(".linux-amd64.tar.gz")).browser_download_url')"
           curl -L "${BUILDKIT_URL}" | sudo tar -xz -C /usr/local
 
+      - name: "Expose GitHub Runtime"
+        uses: crazy-max/ghaction-github-runtime@v1
+
       - name: Start buildkit daemon
         run: |
           docker run --net=host \
@@ -35,9 +38,6 @@ jobs:
             --name dagger-buildkitd \
             --privileged \
             moby/buildkit:master
-
-      - name: "Expose GitHub Runtime"
-        uses: crazy-max/ghaction-github-runtime@v1
 
       - name: Run go program and build
         env:
