@@ -1,3 +1,3 @@
 FROM alpine
 
-RUN echo test >> /result.txt
+RUN echo test >> /test
