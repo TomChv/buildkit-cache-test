@@ -47,8 +47,8 @@ jobs:
           env | grep ACTIONS
           go run ./main.go | buildctl build \
           --output type=local,dest=result \
-          --export-cache type=gha,mode=max \
-          --import-cache type=gha \
+          --export-cache type=gha,mode=max,url=$ACTIONS_CACHE_URL,token=$ACTIONS_RUNTIME_TOKEN \
+          --import-cache type=gha,url=$ACTIONS_CACHE_URL,token=$ACTIONS_RUNTIME_TOKEN \
           --progress plain
 
       - name: Verify result
@@ -98,8 +98,8 @@ jobs:
             --local context=. \
             --local dockerfile=. \
             --output type=local,dest=result \
-            --export-cache type=gha,mode=max \
-            --import-cache type=gha
+            --export-cache type=gha,mode=max,url=$ACTIONS_CACHE_URL,token=$ACTIONS_RUNTIME_TOKEN \
+            --import-cache type=gha,url=$ACTIONS_CACHE_URL,token=$ACTIONS_RUNTIME_TOKEN
 
       - name: Verify result
         run: |
