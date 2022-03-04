@@ -1,3 +1,3 @@
 FROM alpine
 
-RUN echo test >> /test
+RUN sleep 10 && echo test >> /test
