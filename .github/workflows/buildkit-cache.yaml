@@ -109,6 +109,9 @@ jobs:
     name: "GitHub cache with Buildkit client"
     runs-on: ubuntu-20.04
     timeout-minutes: 15
+    strategy:
+      matrix:
+        cmd: ["build-wrapped", "build-simple"]
     steps:
       - name: "Check out"
         uses: actions/checkout@v2
@@ -136,7 +139,7 @@ jobs:
           BUILDKIT_HOST: docker-container://dagger-buildkitd
         run: |
           env | grep ACTIONS
-          go run ./main.go build
+          go run ./main.go ${{ matrix.cmd }}
           
 
       - name: Verify result

@@ -42,9 +42,9 @@ func New(ctx context.Context) (*Client, error) {
 	return &Client{c}, nil
 }
 
-func (c *Client) Do(ctx context.Context) error {
+func (c *Client) DoWrapped(ctx context.Context) error {
 	attrs := map[string]string{
-		"scope": "test-cache",
+		"scope": "test-cache-wrapped",
 	}
 
 	attrs["url"] = os.Getenv("ACTIONS_CACHE_URL")
@@ -66,10 +66,10 @@ func (c *Client) Do(ctx context.Context) error {
 	fmt.Printf("Cache imports: %v\n", opts.CacheImports)
 	fmt.Printf("Cache exports: %v\n", opts.CacheExports)
 
-	return c.exec(ctx, opts)
+	return c.execWrapped(ctx, opts)
 }
 
-func (c *Client) exec(ctx context.Context, opts bk.SolveOpt) error {
+func (c *Client) execWrapped(ctx context.Context, opts bk.SolveOpt) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
@@ -120,7 +120,7 @@ func (c *Client) exec(ctx context.Context, opts bk.SolveOpt) error {
 	return eg.Wait()
 }
 
-func build() {
+func buildWrapped() {
 	ctx := context.Background()
 	c, err := New(ctx)
 	if err != nil {
@@ -128,7 +128,88 @@ func build() {
 	}
 
 	n := time.Now()
-	err = c.Do(ctx)
+	err = c.DoWrapped(ctx)
+	fmt.Printf("Done in %v\n", time.Since(n))
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (c *Client) DoSimple(ctx context.Context) error {
+	attrs := map[string]string{
+		"scope": "test-cache-simple",
+	}
+
+	attrs["url"] = os.Getenv("ACTIONS_CACHE_URL")
+	attrs["token"] = os.Getenv("ACTIONS_RUNTIME_TOKEN")
+
+	opts := bk.SolveOpt{
+		Exports: []bk.ExportEntry{{Type: "local", OutputDir: "result"}},
+		CacheImports: []bk.CacheOptionsEntry{{
+			Type:  "gha",
+			Attrs: attrs,
+		}},
+		CacheExports: []bk.CacheOptionsEntry{{
+			Type:  "gha",
+			Attrs: attrs,
+		}},
+		Session: []session.Attachable{authprovider.NewDockerAuthProvider(os.Stderr)},
+	}
+
+	fmt.Printf("Cache imports: %v\n", opts.CacheImports)
+	fmt.Printf("Cache exports: %v\n", opts.CacheExports)
+
+	return c.execSimple(ctx, opts)
+}
+
+func (c *Client) execSimple(ctx context.Context, opts bk.SolveOpt) error {
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		wg := sync.WaitGroup{}
+		defer func() {
+			wg.Wait()
+		}()
+
+		status := make(chan *bk.SolveStatus)
+		wg.Add(1)
+
+		// Catch channel
+		go func() {
+			for _ = range status {
+			}
+			wg.Done()
+		}()
+
+		state := llb.
+			Image("alpine").
+			User("root").
+			Run(llb.Shlex(`sh -c "sleep 10 && echo -n test > /test"`))
+
+		def, err := state.Marshal(ctx, llb.LinuxArm64)
+		if err != nil {
+			return err
+		}
+
+		_, err = c.c.Solve(ctx, def, opts, status)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return eg.Wait()
+}
+
+func buildSimple() {
+	ctx := context.Background()
+	c, err := New(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	n := time.Now()
+	err = c.DoSimple(ctx)
 	fmt.Printf("Done in %v\n", time.Since(n))
 	if err != nil {
 		fmt.Println(err)
@@ -146,9 +227,15 @@ func main() {
 		return
 	}
 
-	if args[0] == "build" {
-		build()
+	if args[0] == "build-wrapped" {
+		buildWrapped()
 		return
 	}
+
+	if args[0] == "build-simple" {
+		buildSimple()
+		return
+	}
+
 	log.Fatalln("Unknown arguments")
 }
