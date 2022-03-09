@@ -72,6 +72,13 @@ func (c *Client) DoWrapped(ctx context.Context) error {
 func (c *Client) execWrapped(ctx context.Context, opts bk.SolveOpt) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
+	attrs := map[string]string{
+		"scope": "test-cache-wrapped",
+	}
+
+	attrs["url"] = os.Getenv("ACTIONS_CACHE_URL")
+	attrs["token"] = os.Getenv("ACTIONS_RUNTIME_TOKEN")
+
 	eg.Go(func() error {
 		wg := sync.WaitGroup{}
 		defer func() {
@@ -102,6 +109,10 @@ func (c *Client) execWrapped(ctx context.Context, opts bk.SolveOpt) error {
 
 				res, err := c.Solve(ctx, bkgw.SolveRequest{
 					Definition: def.ToPB(),
+					CacheImports: []bkgw.CacheOptionsEntry{{
+						Type:  "gha",
+						Attrs: attrs,
+					}},
 					//	CacheImports: []bkgw.CacheOptionsEntry{{
 					//		Type: "local",
 					//		Attrs: map[string]string{
