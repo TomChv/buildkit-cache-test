@@ -45,7 +45,7 @@ jobs:
         run: |
           buildctl --version
           env | grep ACTIONS
-          go run ./main.go | buildctl build \
+          go run ./main.go generate | buildctl build \
           --output type=local,dest=result \
           --export-cache type=gha,mode=max,url=$ACTIONS_CACHE_URL,token=$ACTIONS_RUNTIME_TOKEN,scope=test-llb \
           --import-cache type=gha,url=$ACTIONS_CACHE_URL,token=$ACTIONS_RUNTIME_TOKEN,scope=test-llb \
@@ -100,6 +100,44 @@ jobs:
             --output type=local,dest=result \
             --export-cache type=gha,mode=max,url=$ACTIONS_CACHE_URL,token=$ACTIONS_RUNTIME_TOKEN,scope=test-dockerfile \
             --import-cache type=gha,url=$ACTIONS_CACHE_URL,token=$ACTIONS_RUNTIME_TOKEN,scope=test-dockerfile
+
+      - name: Verify result
+        run: |
+          grep -q test result/test
+
+  github-cache-client:
+    name: "GitHub cache with Buildkit client"
+    runs-on: ubuntu-20.04
+    timeout-minutes: 15
+    steps:
+      - name: "Check out"
+        uses: actions/checkout@v2
+
+      - name: "Set up Go"
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+
+      - name: "Expose GitHub Runtime"
+        uses: crazy-max/ghaction-github-runtime@v1
+
+      - name: Start buildkit daemon
+        run: |
+          docker run --net=host \
+            -d \
+            --restart always \
+            -v dagger-buildkitd:/var/lib/buildkit \
+            --name dagger-buildkitd \
+            --privileged \
+            moby/buildkit:master
+
+      - name: Build
+        env:
+          BUILDKIT_HOST: docker-container://dagger-buildkitd
+        run: |
+          env | grep ACTIONS
+          go run ./main.go build
+          
 
       - name: Verify result
         run: |
