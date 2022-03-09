@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	bk "github.com/moby/buildkit/client"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // import the container connection driver
@@ -126,7 +127,9 @@ func build() {
 		panic(err)
 	}
 
+	n := time.Now()
 	err = c.Do(ctx)
+	fmt.Printf("Done in %v\n", time.Since(n))
 	if err != nil {
 		fmt.Println(err)
 	}
